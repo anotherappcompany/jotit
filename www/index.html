@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />         
+		<meta http-equiv="Content-Security-Policy" content="default-src * blob: filesystem: data: file:; style-src * 'unsafe-inline'; script-src * 'unsafe-inline' 'unsafe-eval'; media-src *; img-src * blob: filesystem: data: file:;">
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+		<title>PEN APP</title>
+		
+		<script type="text/javascript" src="cordova.js"></script>
+		<link rel="stylesheet" href="index.css">
+		<script type="text/javascript" src="jquery-3.5.1.min.js"></script>
+		<script>
+			var bgmode = "";
+			var cordovaCall = "";
+			
+			document.addEventListener('deviceready', onDeviceReady, false);
+			function onDeviceReady(){
+				bgmode = cordova.plugins.backgroundMode;
+				cordovaCall = cordova.plugins.CordovaCall; 	
+				console.log('cordovaCall is now available');
+				bgmode.setDefaults({
+					title: 'Jot It!',
+					text: 'Tap to resume',
+					color: 'F14F4D',
+					silent: 'true'
+				});
+				bgmode.on('activate', function() {					
+					bgmode.disableWebViewOptimizations();
+					bgmode.overrideBackButton();
+					console.log('Jot it moved to background...'); 				
+					
+					cordovaCall.on('speakerOn', function(){
+						console.log('speaker on');
+					});
+				});		
+				bgmode.enable();		
+
+			}
+			
+			$(document).ready(function(){
+				window.showNotes = showNotes;
+				window.keyboard = keyboard;
+				
+				var coreURL = "https://anotherappcompany.com/pen/query.php";
+				
+				/*Hide Div*/
+				$('.keyboard_key1').hide();
+				$('.savedNotesScreen').hide();
+				$('.settingsScreen').hide();
+				$('.showNoteScreen').hide();
+				$('.categoryArrowListWrap').hide();
+				$('.confirmDeleteScreen').hide();
+				
+				/* Displaying Date and Time*/
+				function displayDateTime(){
+					var fullDate = new Date();
+					var currentMonth = fullDate.toLocaleString('default', { month: 'short' });
+					var currentDate = fullDate.getDate();
+					var currentYear = fullDate.getFullYear();
+					var timeStamp =  fullDate.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })
+					var currentDatetime = currentMonth + " " + currentDate + " " + currentYear + " " + timeStamp;
+					console.log(currentDatetime);
+					return currentDatetime;
+				}
+				$('.currentDateTimeInner').html(displayDateTime());
+				
+				/*Displaying total character typed*/
+				function countCharacter(){
+					var total = $('.textAreaText').text().length;
+					$('.countTextInner').text(': ' + total);
+				}
+				countCharacter();
+				
+				/*keyUp*/
+				function switchCase(){
+					$('.keyboard_letter').text(function(i,oldText) {
+						if(oldText == oldText.toLowerCase()){
+							return oldText.toUpperCase();
+						}else{
+							return oldText.toLowerCase();
+						}
+					});
+				}
+								
+				function keyboard(){
+					$('.keyboardScreen').click(function(){
+						countCharacter();
+					});
+				
+					var cursor = '<div class=blinkingCursor></div>';
+					$('.textArea').click(function(event){
+						$('.blinkingCursor').remove();
+						var target = $(event.target);
+						var closest = target.closest('.textArea');
+						$('.textAreaSelected').removeClass('textAreaSelected');
+						closest.addClass('textAreaSelected');
+						$('.textAreaSelected').append(cursor);
+					})
+					
+					$('.keyboard_more').off();
+					$('.keyboard_shift').off();
+					$('.keyboard_capsLock').off();
+					
+					$('.keyboard_more').click(function(){
+						if($('.keyboard_key:visible').length){
+							$(".keyboard_key1").show();
+							$(".keyboard_key").hide();
+							$(".keyboard_letter").hide();
+							$(".keyboard_shift").hide();
+							$(".keyboard_capsLock").hide();
+						}else{
+							$(".keyboard_key1").hide();
+							$(".keyboard_key").show();
+							$(".keyboard_letter").show();
+							$(".keyboard_shift").show();
+							$(".keyboard_capsLock").show();
+						}
+					});
+					
+					/*Get key from key click*/
+					$('.keyboard_key,.keyboard_letter,.keyboard_key1').click(function(){
+						var key1 = $(this).text();
+						var count = $('.textAreaSelected').html($('.textAreaSelected').text() + key1 + cursor);
+					});
+					
+					/*space*/
+					$('.keyboard_space').click(function(){
+						$('.textAreaSelected').html($('.textAreaSelected').text() + ' ' + cursor);
+					});
+					
+					/*backspace*/
+					$('.keyboard_backspace').click(function(){
+						var text1 = $('.textAreaSelected').text();
+						var backSpace = text1.substr(0, text1.length-1);
+						var newText = $('.textAreaSelected').html(backSpace + cursor);
+					});
+					
+					/*SHIFT*/
+					$('.keyboard_shift').click(function(){
+						switchCase();
+						setTimeout(function(){  
+							$('.keyboardScreen').click(function(){
+								switchCase();
+								$('.keyboardScreen').off();
+							});
+						},50);
+					});
+					
+					/*capslock*/
+					$('.keyboard_capsLock').click(function(){
+						switchCase();
+					});
+				}
+				
+				function loadNote(noteID){
+					$('.showNoteScreen').show();
+					var noteContent = $.trim($('#note'+noteID+'>.savedNoteContent>.savedNoteContentInner').text());
+					var noteTitle = $.trim($('#note'+noteID+'>.savedNoteTitle').text());
+					
+					$('.showNoteJotTitleInner').text(noteTitle);
+					$('.showNoteNoteInner').text(noteContent);
+					$('.showNoteTitleInner').click(function(){
+						$('.showNoteScreen').hide();
+					});
+					
+					console.log('Note ' + noteID + ' was clicked.');
+					console.log(noteTitle, noteContent);
+				}
+				
+				function showNotes(){
+					$('.savedNotesScreen').slideDown(400);
+					$('.savedNotesTitleInner').click(function(){
+						$('.savedNotesScreen').hide();
+					});
+					var formData = "command=showNotes&userID=1";
+					var http = new XMLHttpRequest();
+					var url = coreURL;
+					http.open("POST", url, true);
+					http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+					http.onreadystatechange = function() {
+						if(http.readyState == XMLHttpRequest.DONE && http.status == 200){
+							htmlraw = $.trim(http.responseText);
+							html = $.parseHTML(htmlraw, document, true);
+							$('.savedNotesPlaceholder').html(html);
+							$('.savedNote').click(function(event){
+								var target = $(event.target);
+								var closest = target.closest('.savedNote');
+								var noteid = closest.attr('noteid');
+								loadNote(noteid);
+							});
+						}
+					}
+					http.send(formData);
+				}
+				
+				function showNotesCategory(){
+					$('.savedNotesScreen').slideDown(400);
+					$('.savedNotesTitleInner').click(function(){
+						$('.savedNotesScreen').hide();
+					});
+					var formData = "command=showNotesCategory&userID=1&category=" + encodeURIComponent($.trim($('.categoryInner').text()));
+					var http = new XMLHttpRequest();
+					var url = coreURL;
+					http.open("POST", url, true);
+					http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+					http.onreadystatechange = function() {
+						if(http.readyState == XMLHttpRequest.DONE && http.status == 200){
+							htmlraw = $.trim(http.responseText);
+							html = $.parseHTML(htmlraw, document, true);
+							$('.savedNotesPlaceholder').html(html);
+							$('.savedNote').off();
+							$('.savedNote').click(function(event){
+								var target = $(event.target);
+								var closest = target.closest('.savedNote');
+								var noteid = closest.attr('noteid');
+								loadNote(noteid);
+							});
+							
+							$('.savedNoteErrorConfirm').off();
+							$('.savedNoteErrorConfirm').click(function(){
+								$('.savedNote').off();
+								$('.savedNotesScreen').hide(0);
+							});
+						}
+					}
+					http.send(formData);
+				}
+				
+				function showNotesAllCategories(){
+					$('.savedNotesScreen').slideDown(400);
+					$('.savedNotesTitleInner').click(function(){
+						$('.savedNotesScreen').hide();
+					});
+					var formData = "command=showNotesAllCategories&userID=1";
+					var http = new XMLHttpRequest();
+					var url = coreURL;
+					http.open("POST", url, true);
+					http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+					http.onreadystatechange = function() {
+						if(http.readyState == XMLHttpRequest.DONE && http.status == 200){
+							htmlraw = $.trim(http.responseText);
+							html = $.parseHTML(htmlraw, document, true);
+							$('.savedNotesPlaceholder').html(html);
+							$('.savedNote').click(function(event){
+								var target = $(event.target);
+								var closest = target.closest('.savedNote');
+								var noteid = closest.attr('noteid');
+								loadNote(noteid);
+							});
+						}
+					}
+					http.send(formData);
+				}
+				
+				function saveNote(){
+					var formData = "command=saveNote&owner=1&title="+encodeURIComponent($.trim($('.currentDateTimeInner').text()))+"&category="+encodeURIComponent($.trim($('.categoryInner').text()))+"&content="+encodeURIComponent($.trim($('.textAreaText').text()));
+					var http = new XMLHttpRequest();
+					var url = coreURL;
+					http.open("POST", url, true);
+					http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+					http.onreadystatechange = function() {
+						if(http.readyState == XMLHttpRequest.DONE && http.status == 200){
+							htmlraw = $.trim(http.responseText);
+							html = $.parseHTML(htmlraw, document, true);
+							$('.noteSaved').remove();
+							$('.saveIcon').append("<div class=noteSaved><div class=noteSavedInner><div class=noteSavedTitle>💾 SAVED</div><div class=noteSavedExit>X</div><div class=noteSavedBody></div><div class=noteSavedConfirm>OK</div></div></div>");
+							$('.noteSavedBody').html(html);
+							$('.noteSavedConfirm, .noteSavedExit').click(function(){
+								$('.noteSaved').hide(200);
+								setTimeout(function(){ showNotes(); }, 200);
+							});
+						}
+					}
+					http.send(formData);
+				}
+				
+				keyboard();
+				
+				$('.deleteIconInner').click(function(){
+					$('.confirmDeleteScreen, .confirmDeleteButtonYes').off();
+					$('.confirmDeleteScreen').show(100);
+					$('.confirmDeleteScreen').click(function(){
+						$('.confirmDeleteScreen').hide(200);
+					});
+					$('.confirmDeleteButtonYes').click(function(){
+						location.reload();
+					});
+				});
+				
+				$('.mainExitInner').click(function(){
+					saveNote();
+				});
+				
+				$('.settingsIcon').click(function(){
+					$('.settingsScreen').show();
+				});
+				$('.settingsTitleInner').click(function(){
+					$('.settingsScreen').hide();
+				});
+				
+				$('.saveIconInner').click(function(){
+					showNotesAllCategories();
+				});
+				
+				$('.jotsButtonInner').click(function(){
+					showNotesCategory();
+				});
+				
+				$('.categoryArrowInner').click(function(){
+					$('.categoryArrowListWrap').toggle(125);
+					/*$('#wrap').click(function(){
+						$('.categoryArrowListWrap').hide(125);
+						$('#wrap').off();
+					});*/
+					$('.categoryItem').click(function(e){
+						$('.categoryInner').html($(e.target).closest('.categoryItem').html());
+						$('.categoryItem').off();
+					});
+				});
+			});
+		</script>
+	</head>
+	
+	<body>
+		<div id=wrap>
+			<div class=settingsScreen>
+				<div class=settingsTitle>
+					<div class=settingsTitleInner>
+						
+					</div>
+				</div>
+				<div class=settingsContainer>
+					<div class=settingsContainer>
+						<div class=settingsContainerInner>
+							Change password
+						</div>
+					</div>
+					<div class=settingsContainer>
+						<div class=settingsContainerInner>
+						
+						</div>
+					</div>
+					<div class=settingsContainer>
+						<div class=settingsContainerInner>
+						
+						</div>
+					</div>
+					<div class=settingsContainer>
+						<div class=settingsContainerInner>
+						
+						</div>
+					</div>
+				</div>
+			</div>
+		
+			<div class=showNoteScreen>
+				<div class=showNotePlaceholder>
+					<div class=showNoteTitle>
+						<div class=showNoteTitleInner>
+							
+						</div>
+					</div>
+					<div class=showNoteJotTitle>
+						<div class=showNoteJotTitleInner>
+							Loading jot title...
+						</div>
+					</div>
+					<div class=showNoteBody>
+						<div class=showNoteBodyInner>
+							<div class=showNoteNote>
+								<div class=showNoteNoteInner>
+									Loading your jot...
+								</div>
+							</div>
+							
+							
+						</div>
+					</div>
+				</div>
+			</div>
+		
+			<div class=savedNotesScreen>
+				<div class=savedNotesTitle>
+					<div class=savedNotesTitleInner>
+						
+					</div>
+				</div>
+				<div class=savedNotesPlaceholder>
+					Loading saved jots...
+				</div>
+			</div>
+			
+			<div class=confirmDeleteScreen>
+				<div class=confirmDeleteScreenInner>
+					<div class=confirmDeleteScreenTitle>
+						🗑️ DELETE?
+					</div>
+					
+					<div class=confirmDeleteScreenTitleExit>
+						X
+					</div>
+					
+					<div class=confirmDeleteScreenBody>
+						Are you sure?
+					</div>
+					
+					<div class=confirmDeleteScreenButton>
+						<div class='confirmDeleteScreenButtonInner confirmDeleteButtonYes' id='confirmDeleteButtonYes'>
+							YES
+						</div>
+					</div>
+					
+					<div class=confirmDeleteScreenButton>
+						<div class='confirmDeleteScreenButtonInner confirmDeleteButtonNo' id='confirmDeleteButtonNo'>
+							NO
+						</div>
+					</div>
+				</div>
+			</div>
+		
+			<div class='homeScreen'>
+				<div class='homeScreenTop'>
+					<div class=homeTitle>
+						<div class=homeTitleInner>
+							<div class=homeTitleInnerLeft>
+								
+							</div>
+							<div class=homeTitleInnerCenter>
+								<!-- Jot it! -->
+							</div>
+							<div class=homeTitleInnerRight>
+							
+							</div>
+						</div>
+					</div>
+				
+					<!-- Title Box -->
+					<div class='currentDateTime'>
+						<!--<div class=titleLabel> T: </div>-->
+						<div class='textArea currentDateTimeInner'>
+						
+						</div>
+						
+						<div class='jotsButton'>
+							<div class='jotsButtonInner'>
+								JOTS
+							</div>
+						</div>
+						
+						
+					</div>
+					
+					<!-- Reason Box-->			
+					<div class=homeTopCategory>
+						<!--<div class=categoryLabel> R: </div>-->
+						<div class='categoryInner textArea'><!--Misc--></div>
+						<div class='categoryArrow'>
+							<div class='categoryArrowInner'>
+							
+								<div class=categoryArrowListWrap>
+								
+									<div class=categoryArrowList>
+										<div class=categoryItem>
+
+										</div>
+										<div class=categoryItem>
+											Misc
+										</div>
+										<div class=categoryItem>
+											Passwords
+										</div>
+										<div class=categoryItem>
+											Emails
+										</div>
+										<div class=categoryItem>
+											Phone Numbers
+										</div>
+										<div class=categoryItem>
+											Pins
+										</div>
+										<div class=categoryItem>
+											Confirmations
+										</div>
+										<div class=categoryItem>
+											Logs
+										</div>
+										<div class=categoryItem>
+											Doctors
+										</div>
+										<div class=categoryItem>
+											Birthdays
+										</div>
+										<div class=categoryItem>
+											Aniversaries
+										</div>
+										<div class=categoryItem>
+											Accounts
+										</div>
+										<div class=categoryItem>
+											Gate Codes
+										</div>
+										<div class=categoryItem>
+											Custom
+										</div>
+									</div>
+								
+								
+								</div>
+							</div>
+						</div>
+					
+						
+						<div class=mainExit>
+							<div class=mainExitInner>
+								SAVE
+							</div>
+						</div>
+						
+						
+						
+					</div>
+				</div>
+				
+
+				
+				<!--Text Box -->
+				<div class='textBoxNotes'>
+					<div class='textBoxNotesInner'>
+						<div class='textAreaText textArea textAreaSelected'>
+							&nbsp;<div class=blinkingCursor></div>
+						</div>
+					</div>
+				</div>
+				
+				<!--Icons Section -->
+				<div class='iconSection'>
+					<div class='iconSectionInner'>	
+						<div class='countText mainIcon'>
+							<div class='countTextInner'>
+							
+							</div>
+						</div>
+						
+						<div class='emptyIcon mainIcon'>
+							<div class='emptyIconInner mainIconInner'>
+								<!--SAVED-->
+							</div>
+						</div>
+						
+						<div class='phoneIcon mainIcon'>
+							<div class='phoneIconInner mainIconInner'>
+								<!--SAVED-->
+							</div>
+						</div>
+						
+						<div class='settingsIcon mainIcon'>
+							<div class='settingsIconInner mainIconInner'>
+								<!--HELP?-->
+							</div>
+						</div>
+						
+						<div class='shareIcon mainIcon'>
+							<div class='shareIconInner mainIconInner'>
+								<!--SHARE-->
+							</div>
+						</div>
+						
+						<div class='deleteIcon mainIcon'>
+							<div class='deleteIconInner mainIconInner' id='deleteIconInner'>
+								<!--CLEAR-->
+							</div>
+						</div>
+						
+						<div class='saveIcon mainIcon'>
+							<div class='saveIconInner mainIconInner'>
+								<!--SAVED-->
+							</div>
+						</div>
+					</div>
+					
+				</div>
+				
+				<!--Keyboard-->
+				<div class='keyboardScreen'>
+					<div class='keyboard'>
+						<div class='line1'>
+							<div class="keyboard_key">1</div>
+							<div class="keyboard_key">2</div>
+							<div class="keyboard_key">3</div>
+							<div class="keyboard_key">4</div>
+							<div class="keyboard_key">5</div>
+							<div class="keyboard_key">6</div>
+							<div class="keyboard_key">7</div>
+							<div class="keyboard_key">8</div>
+							<div class="keyboard_key">9</div>
+							<div class="keyboard_key">0</div>
+							<div class="keyboard_key1">-</div>
+							<div class="keyboard_key1">/</div>
+							<div class="keyboard_key1">:</div>
+							<div class="keyboard_key1">;</div>
+							<div class="keyboard_key1">(</div>
+							<div class="keyboard_key1">)</div>
+							<div class="keyboard_key1">$</div>
+							<div class="keyboard_key1">&#38;</div>
+							<div class="keyboard_key1">@</div>
+							<div class="keyboard_key1">"</div>
+							
+						</div>
+						
+						<div class='line2'>
+							<div class="keyboard_letter" id='keyboard_letterTest'>q</div>
+							<div class="keyboard_letter">w</div>
+							<div class="keyboard_letter">e</div>
+							<div class="keyboard_letter">r</div>
+							<div class="keyboard_letter">t</div>
+							<div class="keyboard_letter">y</div>
+							<div class="keyboard_letter">u</div>
+							<div class="keyboard_letter">i</div>
+							<div class="keyboard_letter">o</div>
+							<div class="keyboard_letter">p</div>
+							<div class="keyboard_key1">[</div>
+							<div class="keyboard_key1">]</div>
+							<div class="keyboard_key1">{</div>
+							<div class="keyboard_key1">}</div>
+							<div class="keyboard_key1">#</div>
+							<div class="keyboard_key1">%</div>
+							<div class="keyboard_key1">^</div>
+							<div class="keyboard_key1">*</div>
+							<div class="keyboard_key1">+</div>
+							<div class="keyboard_key1">=</div>
+						</div>
+						
+						<div class='line3'>
+							<div class="keyboard_letter">a</div>
+							<div class="keyboard_letter">s</div>
+							<div class="keyboard_letter">d</div>
+							<div class="keyboard_letter">f</div>
+							<div class="keyboard_letter">g</div>
+							<div class="keyboard_letter">h</div>
+							<div class="keyboard_letter">j</div>
+							<div class="keyboard_letter">k</div>
+							<div class="keyboard_letter">l</div>
+							<div class="keyboard_backspace"></div>
+							<div class="keyboard_key1">-</div>
+							<div class="keyboard_key1">\</div>
+							<div class="keyboard_key1">|</div>
+							<div class="keyboard_key1">~</div>
+							<div class="keyboard_key1">&#60;</div>
+							<div class="keyboard_key1">></div>
+							<div class="keyboard_key1">&#163;</div>
+							<div class="keyboard_key1">&#8364;</div>
+							<div class="keyboard_key1">&middot;</div>
+						</div>
+						
+						<div class='line4'>
+							<div class="keyboard_shift">shift</div>
+							<div class="keyboard_letter">z</div>
+							<div class="keyboard_letter">x</div>
+							<div class="keyboard_letter">c</div>
+							<div class="keyboard_letter">v</div>
+							<div class="keyboard_letter">b</div>
+							<div class="keyboard_letter">n</div>
+							<div class="keyboard_letter">m</div>
+							<div class="keyboard_key1">.</div>
+							<div class="keyboard_key1">,</div>
+							<div class="keyboard_key1">?</div>
+							<div class="keyboard_key1">!</div>
+							<div class="keyboard_key1">'</div>
+							<div class="keyboard_key1">&#169;</div>
+							<div class="keyboard_key1">&#165;</div>
+							<div class="keyboard_capsLock">caps lock</div>
+						</div>
+						
+						<div class='line5'>
+							<div class="keyboard_more"><!--alt--></div>
+							<div class="keyboard_space"></div>
+							<div class="keyboard_voice"></div>
+							<div class="keyboard_return">return</div>
+						</div>
+						
+					</div>
+				</div> <!--end123-->
+			
+			</div>
+			
+		</div>
+	</body>
+</html>
